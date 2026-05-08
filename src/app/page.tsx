@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NpmPackageData, OllamaSettings, SubscribedPackage } from '@/lib/types';
 import {
   addPackage,
@@ -26,6 +26,7 @@ export default function Home() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
+  const fetchGenRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     setPackages(getSubscribedPackages());
@@ -42,17 +43,26 @@ export default function Home() {
   }, [packages]);
 
   async function fetchPackage(name: string, force = false) {
+    const gen = (fetchGenRef.current[name] = (fetchGenRef.current[name] ?? 0) + 1);
     setLoadingPkg(prev => ({ ...prev, [name]: true }));
     try {
       const url = force ? `/api/package/${name}?force=1` : `/api/package/${name}`;
       const res = await fetch(url);
       const data = await res.json();
-      setPackageData(prev => ({ ...prev, [name]: res.ok ? data : null }));
+      if (fetchGenRef.current[name] !== gen) return;
+      if (res.ok) {
+        setPackageData(prev => ({ ...prev, [name]: data }));
+        setLastChecked(prev => ({ ...prev, [name]: new Date().toISOString() }));
+      } else {
+        setPackageData(prev => ({ ...prev, [name]: prev[name] ?? null }));
+      }
     } catch {
-      setPackageData(prev => ({ ...prev, [name]: null }));
+      if (fetchGenRef.current[name] !== gen) return;
+      setPackageData(prev => ({ ...prev, [name]: prev[name] ?? null }));
     } finally {
-      setLoadingPkg(prev => ({ ...prev, [name]: false }));
-      setLastChecked(prev => ({ ...prev, [name]: new Date().toISOString() }));
+      if (fetchGenRef.current[name] === gen) {
+        setLoadingPkg(prev => ({ ...prev, [name]: false }));
+      }
     }
   }
 
