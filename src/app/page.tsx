@@ -40,10 +40,11 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages]);
 
-  async function fetchPackage(name: string) {
+  async function fetchPackage(name: string, force = false) {
     setLoadingPkg(prev => ({ ...prev, [name]: true }));
     try {
-      const res = await fetch(`/api/package/${name}`);
+      const url = force ? `/api/package/${name}?force=1` : `/api/package/${name}`;
+      const res = await fetch(url);
       const data = await res.json();
       setPackageData(prev => ({ ...prev, [name]: res.ok ? data : null }));
     } catch {
@@ -83,8 +84,7 @@ export default function Home() {
   }
 
   function handleRefreshAll() {
-    setPackageData({});
-    packages.forEach(pkg => fetchPackage(pkg.name));
+    packages.forEach(pkg => fetchPackage(pkg.name, true));
   }
 
   function handleSaveSettings(settings: OllamaSettings) {
@@ -158,9 +158,17 @@ export default function Home() {
           <div className="mt-8 space-y-8">
             {withUpdates.length > 0 && (
               <section>
-                <p className="text-xs font-medium uppercase tracking-wider text-emerald-500 mb-3">
-                  Updates available — {withUpdates.length}
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-500">
+                    Updates available — {withUpdates.length}
+                  </p>
+                  <button
+                    onClick={handleMarkAllSeen}
+                    className="text-xs px-2.5 py-1 rounded-md bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-400 transition-colors"
+                  >
+                    Mark all seen
+                  </button>
+                </div>
                 <div className="space-y-2">
                   {withUpdates.map(pkg => (
                     <PackageCard

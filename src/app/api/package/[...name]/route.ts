@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ name: string[] }> }
 ) {
   const { name: segments } = await params;
@@ -10,8 +10,9 @@ export async function GET(
   // Encode for the npm registry URL (%40scope%2Fpkg)
   const registryPath = segments.map(encodeURIComponent).join('%2F');
 
+  const force = req.nextUrl.searchParams.get('force') === '1';
   const res = await fetch(`https://registry.npmjs.org/${registryPath}`, {
-    next: { revalidate: 300 },
+    ...(force ? { cache: 'no-store' } : { next: { revalidate: 300 } }),
   });
 
   if (!res.ok) {
