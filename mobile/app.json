@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "npm tracker",
+    "slug": "npm-tracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "backgroundColor": "#030712",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.npmtracker.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#030712"
+      },
+      "package": "com.npmtracker.app"
+    },
+    "plugins": ["expo-router"],
+    "scheme": "npmtracker",
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
