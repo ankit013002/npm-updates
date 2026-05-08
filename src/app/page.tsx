@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { NpmPackageData, OllamaSettings, SubscribedPackage } from '@/lib/types';
+import { NpmPackageData, SummarySettings, SubscribedPackage } from '@/lib/types';
 import {
   addPackage,
-  getOllamaSettings,
+  getSummarySettings,
   getSubscribedPackages,
   markAsSeen,
   removePackage,
-  saveOllamaSettings,
+  saveSummarySettings,
 } from '@/lib/storage';
 import SearchBar from '@/components/SearchBar';
 import BulkImport from '@/components/BulkImport';
@@ -19,15 +19,14 @@ export default function Home() {
   const [packages, setPackages] = useState<SubscribedPackage[]>([]);
   const [packageData, setPackageData] = useState<Record<string, NpmPackageData | null>>({});
   const [loadingPkg, setLoadingPkg] = useState<Record<string, boolean>>({});
-  const [ollamaSettings, setOllamaSettings] = useState<OllamaSettings>({
-    baseUrl: 'http://localhost:11434',
-    model: 'llama3.2',
+  const [summarySettings, setSummarySettings] = useState<SummarySettings>({
+    claudeApiKey: '',
   });
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
     setPackages(getSubscribedPackages());
-    setOllamaSettings(getOllamaSettings());
+    setSummarySettings(getSummarySettings());
   }, []);
 
   useEffect(() => {
@@ -72,9 +71,9 @@ export default function Home() {
     setPackages(getSubscribedPackages());
   }
 
-  function handleSaveSettings(settings: OllamaSettings) {
-    saveOllamaSettings(settings);
-    setOllamaSettings(settings);
+  function handleSaveSettings(settings: SummarySettings) {
+    saveSummarySettings(settings);
+    setSummarySettings(settings);
     setShowSettings(false);
   }
 
@@ -136,7 +135,7 @@ export default function Home() {
                       loading={loadingPkg[pkg.name] ?? false}
                       onRemove={handleRemove}
                       onMarkAsSeen={handleMarkAsSeen}
-                      ollamaSettings={ollamaSettings}
+                      summarySettings={summarySettings}
                     />
                   ))}
                 </div>
@@ -157,7 +156,7 @@ export default function Home() {
                       loading={loadingPkg[pkg.name] ?? false}
                       onRemove={handleRemove}
                       onMarkAsSeen={handleMarkAsSeen}
-                      ollamaSettings={ollamaSettings}
+                      summarySettings={summarySettings}
                     />
                   ))}
                 </div>
@@ -169,7 +168,7 @@ export default function Home() {
 
       {showSettings && (
         <SettingsPanel
-          settings={ollamaSettings}
+          settings={summarySettings}
           onSave={handleSaveSettings}
           onClose={() => setShowSettings(false)}
         />
