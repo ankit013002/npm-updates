@@ -94,8 +94,11 @@ function PulseDot() {
 function ExpandRegion({ open, children }: { open: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const [h, setH] = useState<number | 'auto'>(open ? 'auto' : 0);
+  const isMounted = useRef(false);
 
   useLayoutEffect(() => {
+    // Skip initial mount — the initial h value is already correct.
+    if (!isMounted.current) { isMounted.current = true; return; }
     if (!ref.current) return;
     const inner = ref.current.firstElementChild as HTMLElement | null;
     if (!inner) return;
