@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { OllamaSettings } from '@/lib/types';
+import { SettingsIcon, XIcon } from '@/components/Icons';
 
 interface Props {
   settings: OllamaSettings;
@@ -16,75 +17,87 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
 
   useEffect(() => {
     firstInputRef.current?.focus();
-    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-md"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
-        className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl"
+        className="registry-panel w-full max-w-lg overflow-hidden rounded-lg border"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-1">
-          <h2 id="settings-title" className="text-base font-semibold">AI Settings</h2>
+        <div className="flex items-start justify-between gap-4 border-b border-white/10 p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-teal-300/20 bg-teal-400/[0.1] text-teal-100">
+              <SettingsIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <h2 id="settings-title" className="text-base font-semibold text-zinc-50">
+                Summary runtime
+              </h2>
+              <p className="mt-1 text-sm text-zinc-400">Local Ollama endpoint for release notes.</p>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/[0.05] hover:text-zinc-100"
+            aria-label="Close settings"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-sm text-gray-500 mb-5">
-          Connects to a locally running Ollama instance for changelog summaries.
-        </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Ollama URL</label>
+        <div className="space-y-4 p-5">
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-zinc-200">Ollama URL</span>
             <input
               ref={firstInputRef}
               type="text"
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-gray-500 transition-colors"
+              className="h-11 w-full rounded-md border border-white/10 bg-black/30 px-3 font-mono text-sm text-zinc-100 outline-none transition focus:border-teal-300/60 focus:ring-4 focus:ring-teal-300/10"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Model</label>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium text-zinc-200">Model</span>
             <input
               type="text"
               value={model}
               onChange={e => setModel(e.target.value)}
-              placeholder="llama3.2, llama4, mistral…"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-gray-500 placeholder-gray-600 transition-colors"
+              placeholder="llama3.2, mistral, codellama"
+              className="h-11 w-full rounded-md border border-white/10 bg-black/30 px-3 font-mono text-sm text-zinc-100 outline-none transition focus:border-teal-300/60 focus:ring-4 focus:ring-teal-300/10 placeholder:text-zinc-600"
             />
-            <p className="mt-1.5 text-xs text-gray-500">
-              Pull a model first:{' '}
-              <code className="bg-gray-800 px-1 py-0.5 rounded">ollama pull llama3.2</code>
-            </p>
+          </label>
+
+          <div className="rounded-md border border-amber-200/15 bg-amber-200/[0.08] px-3 py-3 text-xs leading-5 text-amber-100">
+            Pull a model first with <code className="rounded-md bg-black/30 px-1.5 py-0.5 font-mono">ollama pull llama3.2</code>.
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="flex justify-end gap-2 border-t border-white/10 p-5">
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+            className="h-10 rounded-md px-4 text-sm font-medium text-zinc-400 transition hover:bg-white/[0.04] hover:text-zinc-100"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={() => onSave({ baseUrl, model })}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
+            className="h-10 rounded-md bg-zinc-100 px-4 text-sm font-semibold text-neutral-950 transition hover:bg-white"
           >
             Save
           </button>

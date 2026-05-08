@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "npm tracker",
-  description: "Track npm package updates with AI-powered changelogs",
+  description: "Track npm package updates and release notes",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#030712",
+  themeColor: "#090a0a",
   width: "device-width",
   initialScale: 1,
   minimumScale: 1,
@@ -42,7 +42,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-neutral-950">
         <ServiceWorkerRegistration />
         {children}
       </body>

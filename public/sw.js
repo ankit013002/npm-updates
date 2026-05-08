@@ -1,18 +1,28 @@
-const CACHE = 'npm-tracker-v1';
-const APP_SHELL = ['/', '/favicon.ico'];
+const CACHE = 'npm-tracker-v2';
+const APP_SHELL = ['/favicon.ico'];
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const IS_LOCAL = LOCAL_HOSTS.has(self.location.hostname);
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))
+    IS_LOCAL
+      ? Promise.resolve()
+      : caches.open(CACHE).then(cache => cache.addAll(APP_SHELL))
   );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys =>
+        Promise.all(
+          keys
+            .filter(key => key.startsWith('npm-tracker') && (IS_LOCAL || key !== CACHE))
+            .map(key => caches.delete(key))
+        )
+      )
+      .then(() => (IS_LOCAL ? self.registration.unregister() : undefined))
   );
   self.clients.claim();
 });
@@ -24,13 +34,24 @@ self.addEventListener('fetch', event => {
   // Skip cross-origin and non-GET requests
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
 
+  if (IS_LOCAL || url.pathname.startsWith('/_next/') || url.pathname === '/sw.js') {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // API routes: network-first, no offline fallback (data must be fresh)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(request));
     return;
   }
 
-  // Navigation and static assets: stale-while-revalidate
+  // Navigations must use the newest HTML so the hydrated client bundle matches it.
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/')));
+    return;
+  }
+
+  // Static assets: stale-while-revalidate
   event.respondWith(
     caches.open(CACHE).then(async cache => {
       const cached = await cache.match(request);

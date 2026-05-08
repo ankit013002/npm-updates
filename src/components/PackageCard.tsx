@@ -2,6 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { GitHubRelease, NpmPackageData, OllamaSettings, SubscribedPackage } from '@/lib/types';
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  ExternalLinkIcon,
+  LoaderIcon,
+  SparkIcon,
+  TrashIcon,
+} from '@/components/Icons';
 
 interface Props {
   pkg: SubscribedPackage;
@@ -29,14 +38,20 @@ export default function PackageCard({
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summaryLoading, setSummaryLoading] = useState<Record<string, boolean>>({});
   const [summaryError, setSummaryError] = useState<Record<string, string>>({});
-  const [, setTick] = useState(0);
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 60_000);
-    return () => clearInterval(id);
+    const initialTimer = window.setTimeout(() => setNow(Date.now()), 0);
+    const clockTimer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(clockTimer);
+    };
   }, []);
 
   const hasUpdate = data != null && data.latestVersion !== pkg.lastSeenVersion;
+  const statusLabel = loading ? 'resolving' : hasUpdate ? 'version drift' : data ? 'aligned' : 'queued';
+  const latestVersion = data?.latestVersion ?? pkg.lastSeenVersion;
 
   async function fetchReleases(repoUrl: string) {
     setReleasesLoading(true);
@@ -52,10 +67,12 @@ export default function PackageCard({
     }
   }
 
-  // If the card is already expanded when metadata arrives, kick off the release fetch.
   useEffect(() => {
     if (expanded && !releasesLoaded && !releasesLoading && data?.repositoryUrl) {
-      fetchReleases(data.repositoryUrl);
+      const timer = window.setTimeout(() => {
+        if (data.repositoryUrl) void fetchReleases(data.repositoryUrl);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, data?.repositoryUrl]);
@@ -64,7 +81,7 @@ export default function PackageCard({
     const next = !expanded;
     setExpanded(next);
     if (next && !releasesLoaded && data?.repositoryUrl) {
-      fetchReleases(data.repositoryUrl);
+      await fetchReleases(data.repositoryUrl);
     }
   }
 
@@ -105,7 +122,8 @@ export default function PackageCard({
   }
 
   function formatRelativeTime(iso: string): string {
-    const diffMs = Date.now() - new Date(iso).getTime();
+    const checkedTime = new Date(iso).getTime();
+    const diffMs = (now ?? checkedTime) - checkedTime;
     const diffSec = Math.floor(diffMs / 1000);
     if (diffSec < 60) return 'just now';
     const diffMin = Math.floor(diffSec / 60);
@@ -116,102 +134,108 @@ export default function PackageCard({
   }
 
   return (
-    <div
-      className={`rounded-lg border overflow-hidden transition-colors ${
-        hasUpdate ? 'border-emerald-800 bg-emerald-950/20' : 'border-gray-800 bg-gray-900/40'
+    <article
+      className={`overflow-hidden rounded-lg border transition ${
+        hasUpdate
+          ? 'border-red-400/25 bg-red-500/[0.055] shadow-[0_14px_35px_rgba(0,0,0,0.2)]'
+          : 'border-white/10 bg-black/20 shadow-[0_14px_35px_rgba(0,0,0,0.16)]'
       }`}
     >
-      {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className={`h-px ${hasUpdate ? 'bg-red-300/60' : 'bg-white/10'}`} />
+
+      <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-5">
         <button
+          type="button"
           onClick={handleToggle}
-          className="flex items-center gap-3 flex-1 text-left min-w-0"
+          aria-expanded={expanded}
+          className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-3 text-left"
         >
-          <svg
-            className={`w-3.5 h-3.5 text-gray-500 shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/25 text-zinc-400 transition">
+            <ChevronRightIcon className={`h-4 w-4 transition ${expanded ? 'rotate-90 text-zinc-100' : ''}`} />
+          </span>
 
-          <span className="font-medium text-gray-100 truncate">{pkg.name}</span>
-
-          {loading ? (
-            <span className="text-xs text-gray-600 shrink-0">loading…</span>
-          ) : data ? (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {hasUpdate && (
-                <span className="text-xs text-gray-500 line-through">v{pkg.lastSeenVersion}</span>
-              )}
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="break-all font-mono text-base font-semibold text-zinc-50">{pkg.name}</span>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                className={`rounded-md border px-2 py-1 font-mono text-xs font-semibold ${
                   hasUpdate
-                    ? 'bg-emerald-900/60 text-emerald-300'
-                    : 'bg-gray-800 text-gray-400'
+                    ? 'border-red-400/25 bg-red-500/10 text-red-100'
+                    : loading
+                      ? 'border-amber-200/20 bg-amber-200/10 text-amber-100'
+                      : 'border-white/10 bg-white/[0.04] text-zinc-300'
                 }`}
               >
-                v{data.latestVersion}
+                {statusLabel}
               </span>
+            </span>
+
+            {data?.description && !expanded && (
+              <span className="mt-2 line-clamp-2 block text-sm leading-6 text-zinc-400">
+                {data.description}
+              </span>
+            )}
+
+            <span className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-500">
+              <span className="font-mono text-zinc-300">latest:{latestVersion}</span>
               {hasUpdate && (
-                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">
-                  new
+                <span className="font-mono line-through">seen:{pkg.lastSeenVersion}</span>
+              )}
+              {lastChecked && !loading && (
+                <span className="inline-flex items-center gap-1.5">
+                  <ClockIcon className="h-3.5 w-3.5" />
+                  Checked {formatRelativeTime(lastChecked)}
                 </span>
               )}
-            </div>
-          ) : null}
-
-          {lastChecked && !loading && (
-            <span className="hidden sm:block text-xs text-gray-600 shrink-0">
-              Checked {formatRelativeTime(lastChecked)}
+              {loading && (
+                <span className="inline-flex items-center gap-1.5 text-amber-100">
+                  <LoaderIcon className="h-3.5 w-3.5 animate-spin" />
+                  Reading registry
+                </span>
+              )}
             </span>
-          )}
-
-          {data?.description && !expanded && (
-            <span className="hidden sm:block text-sm text-gray-500 truncate max-w-xs">
-              {data.description}
-            </span>
-          )}
+          </span>
         </button>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center justify-end gap-2 sm:items-start">
           {hasUpdate && (
             <button
+              type="button"
               onClick={() => onMarkAsSeen(pkg.name, data!.latestVersion)}
-              className="text-xs px-2.5 py-1 rounded-md bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-400 transition-colors"
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-zinc-100 px-3 text-xs font-semibold text-neutral-950 transition hover:bg-white"
             >
-              Mark seen
+              <CheckIcon className="h-4 w-4" />
+              Acknowledge
             </button>
           )}
           <button
+            type="button"
             onClick={() => onRemove(pkg.name)}
-            className="p-1.5 text-gray-600 hover:text-gray-400 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-zinc-500 transition hover:border-red-300/30 hover:bg-red-500/10 hover:text-red-200"
             title="Stop tracking"
+            aria-label={`Stop tracking ${pkg.name}`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
 
-      {/* Expanded panel */}
       {expanded && (
-        <div className="border-t border-gray-800 px-4 py-4 space-y-4">
+        <div className="border-t border-white/10 px-4 pb-4 sm:px-5 sm:pb-5">
           {data?.description && (
-            <p className="text-sm text-gray-400">{data.description}</p>
+            <p className="pt-4 text-sm leading-6 text-zinc-300">{data.description}</p>
           )}
 
-          <div className="flex gap-4 text-xs">
+          <div className="flex flex-wrap gap-2 pt-4">
             {data?.homepage && (
               <a
                 href={data.homepage}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-zinc-300 transition hover:border-teal-300/35 hover:text-teal-100"
               >
-                Homepage ↗
+                home
+                <ExternalLinkIcon className="h-3.5 w-3.5" />
               </a>
             )}
             {data?.repositoryUrl && (
@@ -219,95 +243,104 @@ export default function PackageCard({
                 href={data.repositoryUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-zinc-300 transition hover:border-teal-300/35 hover:text-teal-100"
               >
-                GitHub ↗
+                repo
+                <ExternalLinkIcon className="h-3.5 w-3.5" />
               </a>
             )}
             <a
               href={`https://www.npmjs.com/package/${pkg.name}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:underline"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 text-xs font-medium text-zinc-300 transition hover:border-red-400/30 hover:text-red-100"
             >
-              npm ↗
+              registry
+              <ExternalLinkIcon className="h-3.5 w-3.5" />
             </a>
           </div>
 
-          {/* Releases */}
-          <div>
-            <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500 mb-3">
-              Recent Releases
-            </h4>
+          <div className="mt-5 border-t border-white/10 pt-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-zinc-100">GitHub releases</h3>
+              {releases.length > 0 && (
+                <span className="text-xs text-zinc-500">{releases.length} found</span>
+              )}
+            </div>
 
             {releasesLoading && (
-              <p className="text-sm text-gray-500">Loading releases…</p>
+              <p className="inline-flex items-center gap-2 text-sm text-zinc-400">
+                <LoaderIcon className="h-4 w-4 animate-spin" />
+                Reading releases
+              </p>
             )}
 
             {!releasesLoading && releasesLoaded && releases.length === 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-zinc-500">
                 {data?.repositoryUrl
-                  ? 'No GitHub releases found for this package'
-                  : 'No repository URL — cannot fetch releases'}
+                  ? 'No GitHub releases found for this package.'
+                  : 'No repository URL found for this package.'}
               </p>
             )}
 
             {!releasesLoading && !releasesLoaded && !data?.repositoryUrl && (
-              <p className="text-sm text-gray-500">No repository URL — cannot fetch releases</p>
+              <p className="text-sm text-zinc-500">No repository URL found for this package.</p>
             )}
 
             {releases.length > 0 && (
-              <div className="space-y-3">
+              <div className="divide-y divide-white/10 border-y border-white/10">
                 {releases.map(release => (
-                  <div
-                    key={release.tagName}
-                    className="border border-gray-800 rounded-lg p-3 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="font-medium text-sm text-gray-200 truncate">
+                  <div key={release.tagName} className="py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-semibold text-zinc-100">
                           {release.name || release.tagName}
-                        </span>
-                        <span className="text-xs text-gray-500 shrink-0">
-                          {formatDate(release.publishedAt)}
-                        </span>
+                        </p>
+                        <p className="mt-1 font-mono text-xs text-zinc-500">
+                          {release.tagName} - {formatDate(release.publishedAt)}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex shrink-0 flex-wrap gap-2">
                         <a
                           href={release.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-400 hover:underline"
+                          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-white/10 px-2.5 text-xs font-medium text-zinc-300 transition hover:border-teal-300/35 hover:text-teal-100"
                         >
-                          View ↗
+                          Open
+                          <ExternalLinkIcon className="h-3.5 w-3.5" />
                         </a>
                         {release.body && !summaries[release.tagName] && (
                           <button
+                            type="button"
                             onClick={() => handleSummarize(release)}
                             disabled={summaryLoading[release.tagName]}
-                            className="text-xs px-2 py-1 rounded-md bg-violet-900/40 hover:bg-violet-800/60 text-violet-400 transition-colors disabled:opacity-50"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-teal-300/25 bg-teal-300/10 px-2.5 text-xs font-semibold text-teal-100 transition hover:bg-teal-300/15 disabled:border-white/10 disabled:bg-zinc-800 disabled:text-zinc-500"
                           >
-                            {summaryLoading[release.tagName] ? 'Summarizing…' : '✦ AI Summary'}
+                            <SparkIcon className="h-3.5 w-3.5" />
+                            {summaryLoading[release.tagName] ? 'Summarizing' : 'Summarize'}
                           </button>
                         )}
                       </div>
                     </div>
 
                     {summaryError[release.tagName] && (
-                      <p className="text-xs text-red-400">{summaryError[release.tagName]}</p>
+                      <p className="mt-3 rounded-md border border-red-300/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                        {summaryError[release.tagName]}
+                      </p>
                     )}
 
                     {summaries[release.tagName] && (
-                      <div className="p-3 rounded-md bg-violet-950/30 border border-violet-900/40">
-                        <p className="text-xs font-medium text-violet-400 mb-1.5">AI Summary</p>
-                        <p className="text-sm text-gray-300 whitespace-pre-line leading-relaxed">
+                      <div className="mt-3 border-l-2 border-teal-300/50 bg-teal-300/[0.08] py-3 pl-3 pr-4">
+                        <p className="mb-1 text-xs font-semibold text-teal-100">Summary notes</p>
+                        <p className="whitespace-pre-line text-sm leading-6 text-zinc-300">
                           {summaries[release.tagName]}
                         </p>
                       </div>
                     )}
 
                     {release.body && (
-                      <pre className="text-xs text-gray-500 font-mono whitespace-pre-wrap line-clamp-6 leading-relaxed overflow-hidden">
+                      <pre className="mt-3 max-h-36 overflow-hidden whitespace-pre-wrap font-mono text-xs leading-5 text-zinc-500">
                         {release.body}
                       </pre>
                     )}
@@ -318,6 +351,6 @@ export default function PackageCard({
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }

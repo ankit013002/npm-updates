@@ -15,6 +15,19 @@ import BulkImport from '@/components/BulkImport';
 import PackageCard from '@/components/PackageCard';
 import SettingsPanel from '@/components/SettingsPanel';
 import DataPortability from '@/components/DataPortability';
+import { BoxIcon, CheckIcon, ClockIcon, PackageIcon, RefreshIcon, SettingsIcon } from '@/components/Icons';
+
+function formatRelativeTime(iso: string, currentTime: number | null): string {
+  const checkedTime = new Date(iso).getTime();
+  const diffMs = (currentTime ?? checkedTime) - checkedTime;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin} min ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
 
 export default function Home() {
   const [packages, setPackages] = useState<SubscribedPackage[]>([]);
@@ -26,11 +39,20 @@ export default function Home() {
   });
   const [showSettings, setShowSettings] = useState(false);
   const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
+  const [now, setNow] = useState<number | null>(null);
   const fetchGenRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    setPackages(getSubscribedPackages());
-    setOllamaSettings(getOllamaSettings());
+    const loadTimer = window.setTimeout(() => {
+      setPackages(getSubscribedPackages());
+      setOllamaSettings(getOllamaSettings());
+      setNow(Date.now());
+    }, 0);
+    const clockTimer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      window.clearTimeout(loadTimer);
+      window.clearInterval(clockTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -104,124 +126,214 @@ export default function Home() {
     setShowSettings(false);
   }
 
+  const subscribedNames = packages.map(pkg => pkg.name);
+  const loadingCount = packages.filter(pkg => loadingPkg[pkg.name]).length;
   const withUpdates = packages.filter(
-    p => packageData[p.name] && packageData[p.name]!.latestVersion !== p.lastSeenVersion
+    pkg => packageData[pkg.name] && packageData[pkg.name]!.latestVersion !== pkg.lastSeenVersion
   );
   const upToDate = packages.filter(
-    p => !packageData[p.name] || packageData[p.name]!.latestVersion === p.lastSeenVersion
+    pkg => !packageData[pkg.name] || packageData[pkg.name]!.latestVersion === pkg.lastSeenVersion
   );
+  const recentChecks = packages
+    .filter(pkg => lastChecked[pkg.name])
+    .sort((a, b) => new Date(lastChecked[b.name]).getTime() - new Date(lastChecked[a.name]).getTime())
+    .slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="sticky top-0 z-10 border-b border-gray-800 bg-gray-950/90 backdrop-blur-sm px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-base font-semibold tracking-tight">npm tracker</h1>
-            <p className="text-xs text-gray-500 mt-0.5">Track node package updates</p>
-          </div>
-          <div className="flex items-center gap-1">
-          {packages.length > 0 && (
-            <button
-              onClick={handleRefreshAll}
-              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
-              title="Refresh all packages"
-              aria-label="Refresh all packages"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            </button>
-          )}
-          <button
-            onClick={() => setShowSettings(true)}
-            className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
-            title="AI settings"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-          </div>
-        </div>
-      </header>
+    <div className="relative min-h-screen overflow-hidden bg-neutral-950 text-zinc-100">
+      <div className="dashboard-grid pointer-events-none fixed inset-0 z-0" />
 
-      <main className="max-w-3xl mx-auto px-6 py-8">
-        <SearchBar onAdd={handleAdd} subscribedNames={packages.map(p => p.name)} />
-        <BulkImport subscribedNames={packages.map(p => p.name)} onImport={() => setPackages(getSubscribedPackages())} />
-        <DataPortability packages={packages} onImport={() => setPackages(getSubscribedPackages())} />
+      <div className="relative z-10">
+        <header className="sticky top-0 z-20 border-b border-white/10 bg-neutral-950/80 backdrop-blur-xl">
+          <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500 text-white shadow-lg shadow-red-950/40">
+                <BoxIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-zinc-100">npm tracker</p>
+                <p className="text-xs text-zinc-500">{packages.length} tracked</p>
+              </div>
+            </div>
 
-        {packages.length === 0 ? (
-          <div className="mt-24 text-center text-gray-600">
-            <p className="text-base">No packages tracked yet</p>
-            <p className="text-sm mt-1">Search for an npm package above to get started</p>
+            <div className="flex items-center gap-2">
+              {packages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRefreshAll}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-zinc-400 transition hover:border-teal-300/35 hover:text-teal-100"
+                  title="Refresh all packages"
+                  aria-label="Refresh all packages"
+                >
+                  <RefreshIcon className="h-4 w-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowSettings(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-zinc-400 transition hover:border-teal-300/35 hover:text-teal-100"
+                title="Summary runtime"
+                aria-label="Summary runtime"
+              >
+                <SettingsIcon className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="mt-8 space-y-8">
-            {withUpdates.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-500">
-                    Updates available — {withUpdates.length}
-                  </p>
-                  <button
-                    onClick={handleMarkAllSeen}
-                    className="text-xs px-2.5 py-1 rounded-md bg-emerald-900/40 hover:bg-emerald-800/60 text-emerald-400 transition-colors"
-                  >
-                    Mark all seen
-                  </button>
+        </header>
+
+        <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+          <section className="min-w-0 space-y-6">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-semibold text-zinc-50 sm:text-3xl">
+                Registry workspace
+              </h1>
+              <p className="max-w-2xl text-sm leading-6 text-zinc-400">
+                Track npm dist-tags, semver drift, and release notes like a package platform.
+              </p>
+            </div>
+
+            <SearchBar onAdd={handleAdd} subscribedNames={subscribedNames} />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <BulkImport subscribedNames={subscribedNames} onImport={() => setPackages(getSubscribedPackages())} />
+              <DataPortability packages={packages} onImport={() => setPackages(getSubscribedPackages())} />
+            </div>
+
+            {packages.length === 0 ? (
+              <section className="registry-panel rounded-lg border border-dashed border-white/15 px-6 py-12 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg border border-red-400/20 bg-red-500/10 text-red-100">
+                  <PackageIcon className="h-6 w-6" />
                 </div>
-                <div className="space-y-2">
-                  {withUpdates.map(pkg => (
-                    <PackageCard
-                      key={pkg.name}
-                      pkg={pkg}
-                      data={packageData[pkg.name] ?? null}
-                      loading={loadingPkg[pkg.name] ?? false}
-                      onRemove={handleRemove}
-                      onMarkAsSeen={handleMarkAsSeen}
-                      ollamaSettings={ollamaSettings}
-                      lastChecked={lastChecked[pkg.name]}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {upToDate.length > 0 && (
-              <section>
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-600 mb-3">
-                  Up to date — {upToDate.length}
+                <h2 className="mt-4 text-base font-semibold text-zinc-100">No registry entries</h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-zinc-500">
+                  Query npm and pin a package to this workspace.
                 </p>
-                <div className="space-y-2">
-                  {upToDate.map(pkg => (
-                    <PackageCard
-                      key={pkg.name}
-                      pkg={pkg}
-                      data={packageData[pkg.name] ?? null}
-                      loading={loadingPkg[pkg.name] ?? false}
-                      onRemove={handleRemove}
-                      onMarkAsSeen={handleMarkAsSeen}
-                      ollamaSettings={ollamaSettings}
-                      lastChecked={lastChecked[pkg.name]}
-                    />
+              </section>
+            ) : (
+              <div className="space-y-8">
+                {withUpdates.length > 0 && (
+                  <section>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-sm font-semibold text-red-100">Version drift</h2>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {withUpdates.length} package{withUpdates.length === 1 ? '' : 's'} moved past the stored version.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleMarkAllSeen}
+                        className="inline-flex h-9 items-center gap-2 rounded-md bg-zinc-100 px-3 text-xs font-semibold text-neutral-950 transition hover:bg-white"
+                      >
+                        <CheckIcon className="h-4 w-4" />
+                        Acknowledge all
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {withUpdates.map(pkg => (
+                        <PackageCard
+                          key={pkg.name}
+                          pkg={pkg}
+                          data={packageData[pkg.name] ?? null}
+                          loading={loadingPkg[pkg.name] ?? false}
+                          onRemove={handleRemove}
+                          onMarkAsSeen={handleMarkAsSeen}
+                          ollamaSettings={ollamaSettings}
+                          lastChecked={lastChecked[pkg.name]}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {upToDate.length > 0 && (
+                  <section>
+                    <div className="mb-3">
+                      <h2 className="text-sm font-semibold text-zinc-200">Aligned packages</h2>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {upToDate.length} package{upToDate.length === 1 ? '' : 's'} at the latest known dist-tag.
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      {upToDate.map(pkg => (
+                        <PackageCard
+                          key={pkg.name}
+                          pkg={pkg}
+                          data={packageData[pkg.name] ?? null}
+                          loading={loadingPkg[pkg.name] ?? false}
+                          onRemove={handleRemove}
+                          onMarkAsSeen={handleMarkAsSeen}
+                          ollamaSettings={ollamaSettings}
+                          lastChecked={lastChecked[pkg.name]}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+          </section>
+
+          <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
+            <section className="registry-panel rounded-lg border p-5">
+              <h2 className="text-sm font-semibold text-zinc-100">Registry state</h2>
+              <div className="mt-4 grid gap-3">
+                <div className="flex items-center justify-between rounded-md border border-white/10 bg-black/20 px-3 py-3">
+                  <span className="text-sm text-zinc-400">watchlist</span>
+                  <span className="text-lg font-semibold text-zinc-50">{packages.length}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-red-400/20 bg-red-500/10 px-3 py-3">
+                  <span className="text-sm text-red-100">drift</span>
+                  <span className="text-lg font-semibold text-red-50">{withUpdates.length}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-md border border-amber-200/15 bg-amber-200/[0.08] px-3 py-3">
+                  <span className="text-sm text-amber-100">resolving</span>
+                  <span className="text-lg font-semibold text-amber-50">{loadingCount}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="registry-panel rounded-lg border p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-zinc-100">Summary runtime</h2>
+                  <p className="mt-1 break-all font-mono text-xs text-zinc-500">{ollamaSettings.model}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSettings(true)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/10 text-zinc-400 transition hover:border-teal-300/35 hover:text-teal-100"
+                  aria-label="Open summary runtime settings"
+                >
+                  <SettingsIcon className="h-4 w-4" />
+                </button>
+              </div>
+              <p className="mt-3 break-all text-xs leading-5 text-zinc-500">{ollamaSettings.baseUrl}</p>
+            </section>
+
+            <section className="registry-panel rounded-lg border p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <ClockIcon className="h-4 w-4 text-zinc-400" />
+                <h2 className="text-sm font-semibold text-zinc-100">Registry reads</h2>
+              </div>
+              {recentChecks.length === 0 ? (
+                <p className="text-sm text-zinc-500">No reads in this session.</p>
+              ) : (
+                <div className="space-y-3">
+                  {recentChecks.map(pkg => (
+                    <div key={pkg.name} className="min-w-0">
+                      <p className="truncate text-sm font-medium text-zinc-200">{pkg.name}</p>
+                      <p className="mt-0.5 text-xs text-zinc-500">
+                        {formatRelativeTime(lastChecked[pkg.name], now)}
+                      </p>
+                    </div>
                   ))}
                 </div>
-              </section>
-            )}
-          </div>
-        )}
-      </main>
+              )}
+            </section>
+          </aside>
+        </main>
+      </div>
 
       {showSettings && (
         <SettingsPanel
