@@ -11,6 +11,7 @@ import {
   saveSummarySettings,
 } from '@/lib/storage';
 import SearchBar from '@/components/SearchBar';
+import BulkImport from '@/components/BulkImport';
 import PackageCard from '@/components/PackageCard';
 import SettingsPanel from '@/components/SettingsPanel';
 import DataPortability from '@/components/DataPortability';
@@ -146,6 +147,7 @@ export default function Home() {
 
       <main className="max-w-3xl mx-auto px-6 py-8">
         <SearchBar onAdd={handleAdd} subscribedNames={packages.map(p => p.name)} />
+        <BulkImport subscribedNames={packages.map(p => p.name)} onImport={() => setPackages(getSubscribedPackages())} />
         <DataPortability packages={packages} onImport={() => setPackages(getSubscribedPackages())} />
 
         {packages.length === 0 ? (
