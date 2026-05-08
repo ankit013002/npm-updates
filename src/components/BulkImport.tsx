@@ -59,9 +59,8 @@ export default function BulkImport({ subscribedNames, onImport }: Props) {
   }
 
   function handleToggle() {
-    if (open) {
-      reset();
-    }
+    if (phase === 'importing') return; // don't close while import is running
+    if (open) reset();
     setOpen(prev => !prev);
   }
 
@@ -89,8 +88,13 @@ export default function BulkImport({ subscribedNames, onImport }: Props) {
       setParseError('No packages found in dependencies, devDependencies, or peerDependencies');
       return;
     }
-    const alreadyTracked = names.filter(n => subscribedNames.includes(n));
-    const toImport = names.filter(n => !subscribedNames.includes(n));
+    const trackedSet = new Set(subscribedNames);
+    const alreadyTracked: string[] = [];
+    const toImport: string[] = [];
+    for (const n of names) {
+      if (trackedSet.has(n)) alreadyTracked.push(n);
+      else toImport.push(n);
+    }
     setParsed({ packages: toImport, alreadyTracked });
     setPhase('preview');
   }
@@ -102,29 +106,29 @@ export default function BulkImport({ subscribedNames, onImport }: Props) {
     setProgress({ done: 0, total: toImport.length });
 
     let subscribed = 0;
+    // Snapshot existing names once; track additions locally to avoid redundant localStorage reads
+    const existingNames = new Set(getSubscribedPackages().map(p => p.name));
 
     for (let i = 0; i < toImport.length; i++) {
       const name = toImport[i];
       try {
-        const encodedName = name.startsWith('@')
-          ? name.replace('/', '%2F')
-          : name;
-        const res = await fetch(`/api/package/${encodedName}`);
+        // Build the URL path with each segment encoded separately so @scope/pkg works
+        const urlPath = name.split('/').map(encodeURIComponent).join('/');
+        const res = await fetch(`/api/package/${urlPath}`);
         if (res.ok) {
           const data = await res.json();
-          // Re-check in case something was added during the import
-          const current = getSubscribedPackages();
-          if (!current.find(p => p.name === name)) {
+          if (!existingNames.has(name)) {
             addPackage({
               name,
               lastSeenVersion: data.latestVersion,
               addedAt: new Date().toISOString(),
             });
+            existingNames.add(name);
             subscribed++;
           }
         }
       } catch {
-        // skip packages that fail
+        // skip packages that fail to fetch
       }
       setProgress({ done: i + 1, total: toImport.length });
     }
@@ -256,7 +260,7 @@ export default function BulkImport({ subscribedNames, onImport }: Props) {
               <div className="w-full bg-gray-800 rounded-full h-1.5">
                 <div
                   className="bg-emerald-500 h-1.5 rounded-full transition-all"
-                  style={{ width: `${(progress.done / progress.total) * 100}%` }}
+                  style={{ width: `${progress.total > 0 ? (progress.done / progress.total) * 100 : 0}%` }}
                 />
               </div>
             </div>
