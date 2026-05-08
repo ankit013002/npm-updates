@@ -10,6 +10,7 @@ interface Props {
   onRemove: (name: string) => void;
   onMarkAsSeen: (name: string, version: string) => void;
   ollamaSettings: OllamaSettings;
+  lastChecked?: string;
 }
 
 export default function PackageCard({
@@ -19,6 +20,7 @@ export default function PackageCard({
   onRemove,
   onMarkAsSeen,
   ollamaSettings,
+  lastChecked,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [releases, setReleases] = useState<GitHubRelease[]>([]);
@@ -96,6 +98,17 @@ export default function PackageCard({
     });
   }
 
+  function formatRelativeTime(iso: string): string {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  }
+
   return (
     <div
       className={`rounded-lg border overflow-hidden transition-colors ${
@@ -142,6 +155,12 @@ export default function PackageCard({
               )}
             </div>
           ) : null}
+
+          {lastChecked && !loading && (
+            <span className="hidden sm:block text-xs text-gray-600 shrink-0">
+              Checked {formatRelativeTime(lastChecked)}
+            </span>
+          )}
 
           {data?.description && !expanded && (
             <span className="hidden sm:block text-sm text-gray-500 truncate max-w-xs">
