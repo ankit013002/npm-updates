@@ -48,14 +48,18 @@ export default function Home() {
       const res = await fetch(url);
       const data = await res.json();
       if (fetchGenRef.current[name] !== gen) return;
-      setPackageData(prev => ({ ...prev, [name]: res.ok ? data : (prev[name] ?? null) }));
+      if (res.ok) {
+        setPackageData(prev => ({ ...prev, [name]: data }));
+        setLastChecked(prev => ({ ...prev, [name]: new Date().toISOString() }));
+      } else {
+        setPackageData(prev => ({ ...prev, [name]: prev[name] ?? null }));
+      }
     } catch {
       if (fetchGenRef.current[name] !== gen) return;
       setPackageData(prev => ({ ...prev, [name]: prev[name] ?? null }));
     } finally {
       if (fetchGenRef.current[name] === gen) {
         setLoadingPkg(prev => ({ ...prev, [name]: false }));
-        setLastChecked(prev => ({ ...prev, [name]: new Date().toISOString() }));
       }
     }
   }
