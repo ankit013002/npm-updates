@@ -10,6 +10,7 @@ interface Props {
   onRemove: (name: string) => void;
   onMarkAsSeen: (name: string, version: string) => void;
   ollamaSettings: OllamaSettings;
+  lastChecked?: string;
 }
 
 export default function PackageCard({
@@ -19,6 +20,7 @@ export default function PackageCard({
   onRemove,
   onMarkAsSeen,
   ollamaSettings,
+  lastChecked,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [releases, setReleases] = useState<GitHubRelease[]>([]);

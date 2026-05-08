@@ -23,6 +23,7 @@ export default function Home() {
     model: 'llama3.2',
   });
   const [showSettings, setShowSettings] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setPackages(getSubscribedPackages());
@@ -48,6 +49,7 @@ export default function Home() {
       setPackageData(prev => ({ ...prev, [name]: null }));
     } finally {
       setLoadingPkg(prev => ({ ...prev, [name]: false }));
+      setLastChecked(prev => ({ ...prev, [name]: new Date().toISOString() }));
     }
   }
 
@@ -71,6 +73,11 @@ export default function Home() {
     setPackages(getSubscribedPackages());
   }
 
+  function handleRefreshAll() {
+    setPackageData({});
+    packages.forEach(pkg => fetchPackage(pkg.name));
+  }
+
   function handleSaveSettings(settings: OllamaSettings) {
     saveOllamaSettings(settings);
     setOllamaSettings(settings);
@@ -92,6 +99,23 @@ export default function Home() {
             <h1 className="text-base font-semibold tracking-tight">npm tracker</h1>
             <p className="text-xs text-gray-500 mt-0.5">Track node package updates</p>
           </div>
+          <div className="flex items-center gap-1">
+          {packages.length > 0 && (
+            <button
+              onClick={handleRefreshAll}
+              className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
+              title="Refresh all packages"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
+          )}
           <button
             onClick={() => setShowSettings(true)}
             className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
@@ -107,6 +131,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
+          </div>
         </div>
       </header>
 
@@ -135,6 +160,7 @@ export default function Home() {
                       onRemove={handleRemove}
                       onMarkAsSeen={handleMarkAsSeen}
                       ollamaSettings={ollamaSettings}
+                      lastChecked={lastChecked[pkg.name]}
                     />
                   ))}
                 </div>
@@ -156,6 +182,7 @@ export default function Home() {
                       onRemove={handleRemove}
                       onMarkAsSeen={handleMarkAsSeen}
                       ollamaSettings={ollamaSettings}
+                      lastChecked={lastChecked[pkg.name]}
                     />
                   ))}
                 </div>

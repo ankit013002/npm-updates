@@ -22,6 +22,14 @@ function savePackages(packages: SubscribedPackage[]): void {
   localStorage.setItem(PACKAGES_KEY, JSON.stringify(packages));
 }
 
+export function mergePackages(incoming: SubscribedPackage[]): number {
+  const existing = getSubscribedPackages();
+  const existingNames = new Set(existing.map(p => p.name));
+  const toAdd = incoming.filter(p => !existingNames.has(p.name));
+  savePackages([...existing, ...toAdd]);
+  return toAdd.length;
+}
+
 export function addPackage(pkg: SubscribedPackage): void {
   const packages = getSubscribedPackages();
   if (!packages.find(p => p.name === pkg.name)) {
