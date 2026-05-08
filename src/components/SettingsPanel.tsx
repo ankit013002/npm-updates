@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { OllamaSettings } from '@/lib/types';
 
 interface Props {
@@ -12,6 +12,14 @@ interface Props {
 export default function SettingsPanel({ settings, onSave, onClose }: Props) {
   const [baseUrl, setBaseUrl] = useState(settings.baseUrl);
   const [model, setModel] = useState(settings.model);
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    firstInputRef.current?.focus();
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   return (
     <div
@@ -19,11 +27,14 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
         className="bg-gray-900 border border-gray-700 rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-base font-semibold">AI Settings</h2>
+          <h2 id="settings-title" className="text-base font-semibold">AI Settings</h2>
           <button
             onClick={onClose}
             className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
@@ -41,6 +52,7 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1.5">Ollama URL</label>
             <input
+              ref={firstInputRef}
               type="text"
               value={baseUrl}
               onChange={e => setBaseUrl(e.target.value)}

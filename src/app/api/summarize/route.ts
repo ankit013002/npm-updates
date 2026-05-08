@@ -17,7 +17,17 @@ function resolvedBase(clientBase: string | undefined): string | null {
 }
 
 export async function POST(req: NextRequest) {
-  const { changelog, packageName, baseUrl, model } = await req.json();
+  let body: { changelog?: string; packageName?: string; baseUrl?: string; model?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const { changelog, packageName, baseUrl, model } = body;
+  if (!changelog || !packageName) {
+    return NextResponse.json({ error: '`changelog` and `packageName` are required' }, { status: 400 });
+  }
 
   const ollamaBase = resolvedBase(baseUrl);
   if (!ollamaBase) {

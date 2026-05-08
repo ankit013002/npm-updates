@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# npm tracker
 
-## Getting Started
+Track npm package updates and get AI-powered summaries of what changed.
 
-First, run the development server:
+## What it does
+
+- Search for any npm package and subscribe to it
+- Dashboard shows packages split into **Updates available** vs **Up to date**
+- Expand any package to read its GitHub release notes inline
+- Hit **✦ AI Summary** to get a plain-English bullet-point summary of a release via a local Ollama model
+- **Mark seen** to acknowledge an update and clear the badge
+- All subscriptions are stored in browser localStorage — no account or database needed
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## AI summaries (Ollama)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Summaries run against a locally running [Ollama](https://ollama.com) instance. Make sure it's running and you have a model pulled:
 
-## Learn More
+```bash
+ollama serve
+ollama pull llama3.2
+```
 
-To learn more about Next.js, take a look at the following resources:
+Then open the settings gear in the app and set your model name. For remote Ollama instances, set the `OLLAMA_BASE_URL` env var instead of using the UI (the UI only allows loopback addresses for security).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Default | Description |
+|---|---|---|
+| `OLLAMA_BASE_URL` | *(UI value)* | Override the Ollama base URL server-side |
+| `OLLAMA_MODEL` | *(UI value)* | Override the Ollama model server-side |
 
-## Deploy on Vercel
+## API routes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Route | Description |
+|---|---|
+| `GET /api/package/[name]` | Fetches latest version and metadata from the npm registry |
+| `GET /api/changelog?repoUrl=` | Fetches the last 5 GitHub releases for a package |
+| `POST /api/summarize` | Sends a changelog to Ollama and returns a bullet-point summary |

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GitHubRelease, NpmPackageData, OllamaSettings, SubscribedPackage } from '@/lib/types';
 
 interface Props {
@@ -30,23 +30,33 @@ export default function PackageCard({
 
   const hasUpdate = data != null && data.latestVersion !== pkg.lastSeenVersion;
 
+  async function fetchReleases(repoUrl: string) {
+    setReleasesLoading(true);
+    try {
+      const res = await fetch(`/api/changelog?repoUrl=${encodeURIComponent(repoUrl)}`);
+      const json = await res.json();
+      setReleases(json.releases ?? []);
+    } catch {
+      setReleases([]);
+    } finally {
+      setReleasesLoading(false);
+      setReleasesLoaded(true);
+    }
+  }
+
+  // If the card is already expanded when metadata arrives, kick off the release fetch.
+  useEffect(() => {
+    if (expanded && !releasesLoaded && !releasesLoading && data?.repositoryUrl) {
+      fetchReleases(data.repositoryUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded, data?.repositoryUrl]);
+
   async function handleToggle() {
     const next = !expanded;
     setExpanded(next);
     if (next && !releasesLoaded && data?.repositoryUrl) {
-      setReleasesLoading(true);
-      try {
-        const res = await fetch(
-          `/api/changelog?repoUrl=${encodeURIComponent(data.repositoryUrl)}`
-        );
-        const json = await res.json();
-        setReleases(json.releases ?? []);
-      } catch {
-        setReleases([]);
-      } finally {
-        setReleasesLoading(false);
-        setReleasesLoaded(true);
-      }
+      fetchReleases(data.repositoryUrl);
     }
   }
 
