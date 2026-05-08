@@ -114,6 +114,7 @@ export default function Home() {
               onClick={handleRefreshAll}
               className="p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded-md transition-colors"
               title="Refresh all packages"
+              aria-label="Refresh all packages"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path

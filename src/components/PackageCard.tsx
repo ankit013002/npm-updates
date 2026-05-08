@@ -29,6 +29,12 @@ export default function PackageCard({
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summaryLoading, setSummaryLoading] = useState<Record<string, boolean>>({});
   const [summaryError, setSummaryError] = useState<Record<string, string>>({});
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const hasUpdate = data != null && data.latestVersion !== pkg.lastSeenVersion;
 
@@ -98,6 +104,17 @@ export default function PackageCard({
     });
   }
 
+  function formatRelativeTime(iso: string): string {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  }
+
   return (
     <div
       className={`rounded-lg border overflow-hidden transition-colors ${
@@ -144,6 +161,12 @@ export default function PackageCard({
               )}
             </div>
           ) : null}
+
+          {lastChecked && !loading && (
+            <span className="hidden sm:block text-xs text-gray-600 shrink-0">
+              Checked {formatRelativeTime(lastChecked)}
+            </span>
+          )}
 
           {data?.description && !expanded && (
             <span className="hidden sm:block text-sm text-gray-500 truncate max-w-xs">

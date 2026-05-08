@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 import { SubscribedPackage } from '@/lib/types';
 import { mergePackages } from '@/lib/storage';
 
@@ -20,15 +20,17 @@ export default function DataPortability({ packages, onImport }: DataPortabilityP
     const a = document.createElement('a');
     a.href = url;
     a.download = 'npm-tracker-subscriptions.json';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   }
 
   function handleImportClick() {
     fileInputRef.current?.click();
   }
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
