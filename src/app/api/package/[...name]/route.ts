@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ name: string }> }
+  { params }: { params: Promise<{ name: string[] }> }
 ) {
-  const { name } = await params;
-  // decode in case of scoped packages like %40scope%2Fpkg
-  const decoded = decodeURIComponent(name);
-  const encoded = decoded.replace('/', '%2F');
+  const { name: segments } = await params;
+  // Rejoin segments so @scope/pkg arrives as two path parts: ['@scope', 'pkg']
+  const packageName = segments.join('/');
+  // Encode for the npm registry URL (%40scope%2Fpkg)
+  const registryPath = segments.map(encodeURIComponent).join('%2F');
 
-  const res = await fetch(`https://registry.npmjs.org/${encoded}`, {
+  const res = await fetch(`https://registry.npmjs.org/${registryPath}`, {
     next: { revalidate: 300 },
   });
 
@@ -24,14 +25,15 @@ export async function GET(
       ? data.repository
       : data.repository?.url;
 
-  const repoUrl = rawRepo
-    ?.replace(/^git\+/, '')
-    .replace(/^git:\/\//, 'https://')
-    .replace(/^ssh:\/\/git@/, 'https://')
-    .replace(/\.git$/, '') ?? null;
+  const repoUrl =
+    rawRepo
+      ?.replace(/^git\+/, '')
+      .replace(/^git:\/\//, 'https://')
+      .replace(/^ssh:\/\/git@/, 'https://')
+      .replace(/\.git$/, '') ?? null;
 
   return NextResponse.json({
-    name: data.name,
+    name: packageName,
     description: data.description ?? '',
     latestVersion: data['dist-tags']?.latest ?? '',
     repositoryUrl: repoUrl,

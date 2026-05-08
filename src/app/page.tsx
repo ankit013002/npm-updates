@@ -41,7 +41,7 @@ export default function Home() {
   async function fetchPackage(name: string) {
     setLoadingPkg(prev => ({ ...prev, [name]: true }));
     try {
-      const res = await fetch(`/api/package/${encodeURIComponent(name)}`);
+      const res = await fetch(`/api/package/${name}`);
       const data = await res.json();
       setPackageData(prev => ({ ...prev, [name]: res.ok ? data : null }));
     } catch {

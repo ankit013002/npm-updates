@@ -24,7 +24,7 @@ export default function SearchBar({ onAdd, subscribedNames }: Props) {
     setResult(null);
 
     try {
-      const res = await fetch(`/api/package/${encodeURIComponent(trimmed)}`);
+      const res = await fetch(`/api/package/${trimmed}`);
       if (!res.ok) {
         setError('Package not found');
         return;
