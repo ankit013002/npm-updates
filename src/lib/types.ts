@@ -21,7 +21,6 @@ export interface GitHubRelease {
   url: string;
 }
 
-export interface OllamaSettings {
-  baseUrl: string;
-  model: string;
+export interface SummarySettings {
+  claudeApiKey: string;
 }

@@ -1,70 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
-
-function resolvedBase(clientBase: string | undefined): string | null {
-  // Env var takes unconditional precedence.
-  if (process.env.OLLAMA_BASE_URL) return process.env.OLLAMA_BASE_URL;
-
-  const raw = clientBase || 'http://localhost:11434';
-  try {
-    const { hostname } = new URL(raw);
-    if (!LOOPBACK.has(hostname)) return null; // reject non-loopback hosts
-    return raw;
-  } catch {
-    return null;
-  }
-}
+import { summarizeRelease } from '@/lib/summarize';
 
 export async function POST(req: NextRequest) {
-  let body: { changelog?: string; packageName?: string; baseUrl?: string; model?: string };
+  let body: { changelog?: string; packageName?: string; claudeApiKey?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { changelog, packageName, baseUrl, model } = body;
+  const { changelog, packageName, claudeApiKey } = body;
   if (!changelog || !packageName) {
-    return NextResponse.json({ error: '`changelog` and `packageName` are required' }, { status: 400 });
-  }
-
-  const ollamaBase = resolvedBase(baseUrl);
-  if (!ollamaBase) {
     return NextResponse.json(
-      { error: 'Invalid Ollama URL. Only loopback addresses are allowed (set OLLAMA_BASE_URL env var for remote hosts).' },
+      { error: '`changelog` and `packageName` are required' },
       { status: 400 }
     );
   }
 
-  const ollamaModel: string = process.env.OLLAMA_MODEL || model || 'llama3.2';
+  const apiKey = process.env.ANTHROPIC_API_KEY || claudeApiKey;
 
-  const prompt = `Summarize the following changelog for the npm package "${packageName}" in 2-3 concise bullet points. Focus only on what matters to a developer consuming this package — breaking changes, new APIs, or important bug fixes. Skip internal refactors and CI changes.
+  if (!apiKey) {
+    return NextResponse.json({ summary: summarizeRelease(changelog) });
+  }
 
-Changelog:
-${changelog}
-
-Summary (bullet points only):`;
-
-  let res: Response;
   try {
-    res = await fetch(`${ollamaBase}/api/generate`, {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: ollamaModel, prompt, stream: false }),
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [
+          {
+            role: 'user',
+            content: `Summarize this changelog for the npm package "${packageName}" in 3-4 bullet points. Focus on breaking changes, new APIs, and important bug fixes. Skip CI, test, and internal changes.\n\nChangelog:\n${changelog}\n\nBullet points only (start each with •):`,
+          },
+        ],
+      }),
     });
+
+    if (!res.ok) {
+      return NextResponse.json({ summary: summarizeRelease(changelog) });
+    }
+
+    const data = await res.json();
+    const text: string = data.content?.[0]?.text ?? '';
+    return NextResponse.json({ summary: text || summarizeRelease(changelog) });
   } catch {
-    return NextResponse.json(
-      { error: 'Could not reach Ollama. Is it running?' },
-      { status: 503 }
-    );
+    return NextResponse.json({ summary: summarizeRelease(changelog) });
   }
-
-  if (!res.ok) {
-    const text = await res.text();
-    return NextResponse.json({ error: text }, { status: res.status });
-  }
-
-  const data = await res.json();
-  return NextResponse.json({ summary: data.response ?? '' });
 }

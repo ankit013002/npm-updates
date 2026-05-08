@@ -1,12 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { OllamaSettings, SubscribedPackage } from './types';
+import type { SummarySettings, SubscribedPackage } from './types';
 
 const PACKAGES_KEY = 'npm-tracker-packages';
 const SETTINGS_KEY = 'npm-tracker-settings';
 
-const DEFAULT_SETTINGS: OllamaSettings = {
-  baseUrl: 'http://localhost:11434',
-  model: 'llama3.2',
+const DEFAULT_SETTINGS: SummarySettings = {
+  claudeApiKey: '',
 };
 
 export async function getSubscribedPackages(): Promise<SubscribedPackage[]> {
@@ -41,7 +40,7 @@ export async function markAsSeen(name: string, version: string): Promise<void> {
   );
 }
 
-export async function getOllamaSettings(): Promise<OllamaSettings> {
+export async function getSummarySettings(): Promise<SummarySettings> {
   try {
     const data = await AsyncStorage.getItem(SETTINGS_KEY);
     return data ? JSON.parse(data) : DEFAULT_SETTINGS;
@@ -50,6 +49,6 @@ export async function getOllamaSettings(): Promise<OllamaSettings> {
   }
 }
 
-export async function saveOllamaSettings(settings: OllamaSettings): Promise<void> {
+export async function saveSummarySettings(settings: SummarySettings): Promise<void> {
   await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }

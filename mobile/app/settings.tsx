@@ -10,56 +10,24 @@ import {
   View,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import { getOllamaSettings, saveOllamaSettings } from '../lib/storage';
-import type { OllamaSettings } from '../lib/types';
+import { getSummarySettings, saveSummarySettings } from '../lib/storage';
+import type { SummarySettings } from '../lib/types';
 
 export default function SettingsScreen() {
-  const [settings, setSettings] = useState<OllamaSettings>({
-    baseUrl: 'http://localhost:11434',
-    model: 'llama3.2',
-  });
+  const [settings, setSettings] = useState<SummarySettings>({ claudeApiKey: '' });
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
-    getOllamaSettings().then(setSettings);
+    getSummarySettings().then(setSettings);
   }, []);
 
   async function handleSave() {
     setSaving(true);
     try {
-      await saveOllamaSettings(settings);
+      await saveSummarySettings(settings);
       Alert.alert('Saved', 'Settings saved.');
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleTest() {
-    setTesting(true);
-    try {
-      const res = await fetch(`${settings.baseUrl.replace(/\/$/, '')}/api/tags`, {
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const models: string[] = (json.models ?? []).map((m: { name: string }) => m.name);
-        Alert.alert(
-          'Connected',
-          models.length > 0
-            ? `Available models:\n${models.join('\n')}`
-            : 'No models found — try pulling one with `ollama pull llama3.2`.'
-        );
-      } else {
-        Alert.alert('Error', `Ollama returned HTTP ${res.status}`);
-      }
-    } catch {
-      Alert.alert(
-        'Connection failed',
-        'Could not reach Ollama.\n\nOn a physical device, replace localhost with your computer\'s local IP (e.g. 192.168.1.x).'
-      );
-    } finally {
-      setTesting(false);
     }
   }
 
@@ -67,56 +35,36 @@ export default function SettingsScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Stack.Screen options={{ title: 'Settings' }} />
 
-      <Text style={styles.sectionLabel}>Ollama</Text>
+      <Text style={styles.sectionLabel}>Summaries</Text>
       <View style={styles.card}>
-        <Text style={styles.label}>Base URL</Text>
+        <Text style={styles.label}>
+          Claude API key <Text style={styles.labelOptional}>(optional)</Text>
+        </Text>
         <TextInput
           style={styles.input}
-          value={settings.baseUrl}
-          onChangeText={text => setSettings(s => ({ ...s, baseUrl: text }))}
-          placeholder="http://localhost:11434"
+          value={settings.claudeApiKey}
+          onChangeText={text => setSettings({ claudeApiKey: text })}
+          placeholder="sk-ant-…"
           placeholderTextColor="#4b5563"
           autoCapitalize="none"
           autoCorrect={false}
-          keyboardType="url"
-        />
-
-        <View style={styles.divider} />
-
-        <Text style={styles.label}>Model</Text>
-        <TextInput
-          style={styles.input}
-          value={settings.model}
-          onChangeText={text => setSettings(s => ({ ...s, model: text }))}
-          placeholder="llama3.2"
-          placeholderTextColor="#4b5563"
-          autoCapitalize="none"
-          autoCorrect={false}
+          secureTextEntry
         />
       </View>
 
       <Text style={styles.hint}>
-        On a physical device or emulator, replace {'"localhost"'} with your computer{'’'}s
-        local IP address so the device can reach Ollama.
+        Summaries work out of the box using a built-in extractor — no key needed.
+        Add a Claude API key to get richer AI-generated summaries instead.
+        Your key is stored only on this device.
       </Text>
 
-      <View style={styles.btnRow}>
-        <Pressable onPress={handleTest} style={[styles.btn, styles.btnSecondary]} disabled={testing}>
-          {testing ? (
-            <ActivityIndicator color="#10b981" />
-          ) : (
-            <Text style={styles.btnSecondaryText}>Test connection</Text>
-          )}
-        </Pressable>
-
-        <Pressable onPress={handleSave} style={[styles.btn, styles.btnPrimary]} disabled={saving}>
-          {saving ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.btnPrimaryText}>Save</Text>
-          )}
-        </Pressable>
-      </View>
+      <Pressable onPress={handleSave} style={styles.saveBtn} disabled={saving}>
+        {saving ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.saveBtnText}>Save</Text>
+        )}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -141,6 +89,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     borderRadius: 12,
     paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   label: {
     color: '#9ca3af',
@@ -148,15 +97,13 @@ const styles = StyleSheet.create({
     marginTop: 14,
     marginBottom: 4,
   },
+  labelOptional: {
+    color: '#4b5563',
+  },
   input: {
     color: '#f9fafb',
     fontSize: 15,
     paddingVertical: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#1f2937',
-    marginTop: 4,
   },
   hint: {
     color: '#4b5563',
@@ -165,34 +112,17 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 28,
   },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: 13,
+  saveBtn: {
+    backgroundColor: '#10b981',
     borderRadius: 10,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 46,
   },
-  btnPrimary: {
-    backgroundColor: '#10b981',
-  },
-  btnPrimaryText: {
+  saveBtnText: {
     color: '#fff',
     fontWeight: '600',
-    fontSize: 15,
-  },
-  btnSecondary: {
-    backgroundColor: '#111827',
-    borderWidth: 1,
-    borderColor: '#374151',
-  },
-  btnSecondaryText: {
-    color: '#10b981',
-    fontWeight: '500',
     fontSize: 15,
   },
 });

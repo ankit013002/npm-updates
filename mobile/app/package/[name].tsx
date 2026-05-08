@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { fetchPackageData, fetchReleases } from '../../lib/npm';
-import { getSubscribedPackages, markAsSeen } from '../../lib/storage';
+import { getSubscribedPackages, getSummarySettings, markAsSeen } from '../../lib/storage';
+import { generateSummary } from '../../lib/summarize';
 import type { GitHubRelease, NpmPackageData, SubscribedPackage } from '../../lib/types';
 
 export default function PackageDetailScreen() {
@@ -23,6 +24,8 @@ export default function PackageDetailScreen() {
   const [loadingData, setLoadingData] = useState(true);
   const [loadingReleases, setLoadingReleases] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  const [summaryLoading, setSummaryLoading] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     load();
@@ -48,6 +51,18 @@ export default function PackageDetailScreen() {
       setError('Failed to load package data.');
     } finally {
       setLoadingData(false);
+    }
+  }
+
+  async function handleSummarize(release: GitHubRelease) {
+    if (!release.body || summaryLoading[release.tagName]) return;
+    setSummaryLoading(prev => ({ ...prev, [release.tagName]: true }));
+    try {
+      const { claudeApiKey } = await getSummarySettings();
+      const summary = await generateSummary(release.body, decodedName, claudeApiKey);
+      setSummaries(prev => ({ ...prev, [release.tagName]: summary }));
+    } finally {
+      setSummaryLoading(prev => ({ ...prev, [release.tagName]: false }));
     }
   }
 
@@ -155,9 +170,28 @@ export default function PackageDetailScreen() {
                     {r.body.trim()}
                   </Text>
                 ) : null}
-                <Pressable onPress={() => Linking.openURL(r.url)} style={styles.releaseLink}>
-                  <Text style={styles.releaseLinkText}>View on GitHub ↗</Text>
-                </Pressable>
+                <View style={styles.releaseFooter}>
+                  <Pressable onPress={() => Linking.openURL(r.url)} style={styles.releaseLink}>
+                    <Text style={styles.releaseLinkText}>View on GitHub ↗</Text>
+                  </Pressable>
+                  {r.body && !summaries[r.tagName] && (
+                    <Pressable
+                      onPress={() => handleSummarize(r)}
+                      disabled={summaryLoading[r.tagName]}
+                      style={[styles.summarizeBtn, summaryLoading[r.tagName] && styles.summarizeBtnDisabled]}
+                    >
+                      <Text style={styles.summarizeBtnText}>
+                        {summaryLoading[r.tagName] ? 'Summarizing…' : 'Summarize'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+                {summaries[r.tagName] ? (
+                  <View style={styles.summaryBox}>
+                    <Text style={styles.summaryLabel}>Summary</Text>
+                    <Text style={styles.summaryText}>{summaries[r.tagName]}</Text>
+                  </View>
+                ) : null}
               </View>
             ))
           )}
@@ -300,11 +334,44 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 8,
   },
-  releaseLink: {
-    alignSelf: 'flex-start',
+  releaseFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
+  releaseLink: {},
   releaseLinkText: {
     color: '#4b5563',
     fontSize: 12,
+  },
+  summarizeBtn: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  summarizeBtnDisabled: {
+    opacity: 0.5,
+  },
+  summarizeBtnText: {
+    color: '#a5b4fc',
+    fontSize: 12,
+  },
+  summaryBox: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+  },
+  summaryLabel: {
+    color: '#818cf8',
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  summaryText: {
+    color: '#c7d2fe',
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
