@@ -13,6 +13,7 @@ import {
 import SearchBar from '@/components/SearchBar';
 import PackageCard from '@/components/PackageCard';
 import SettingsPanel from '@/components/SettingsPanel';
+import DataPortability from '@/components/DataPortability';
 
 export default function Home() {
   const [packages, setPackages] = useState<SubscribedPackage[]>([]);
@@ -70,6 +71,14 @@ export default function Home() {
 
   function handleMarkAsSeen(name: string, version: string) {
     markAsSeen(name, version);
+    setPackages(getSubscribedPackages());
+  }
+
+  function handleMarkAllSeen() {
+    withUpdates.forEach(pkg => {
+      const latest = packageData[pkg.name]?.latestVersion;
+      if (latest) markAsSeen(pkg.name, latest);
+    });
     setPackages(getSubscribedPackages());
   }
 
@@ -137,6 +146,7 @@ export default function Home() {
 
       <main className="max-w-3xl mx-auto px-6 py-8">
         <SearchBar onAdd={handleAdd} subscribedNames={packages.map(p => p.name)} />
+        <DataPortability packages={packages} onImport={() => setPackages(getSubscribedPackages())} />
 
         {packages.length === 0 ? (
           <div className="mt-24 text-center text-gray-600">
