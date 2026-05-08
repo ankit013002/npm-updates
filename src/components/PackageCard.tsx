@@ -29,6 +29,12 @@ export default function PackageCard({
   const [summaries, setSummaries] = useState<Record<string, string>>({});
   const [summaryLoading, setSummaryLoading] = useState<Record<string, boolean>>({});
   const [summaryError, setSummaryError] = useState<Record<string, string>>({});
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const hasUpdate = data != null && data.latestVersion !== pkg.lastSeenVersion;
 

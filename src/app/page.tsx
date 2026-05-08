@@ -74,7 +74,6 @@ export default function Home() {
   }
 
   function handleRefreshAll() {
-    setPackageData({});
     packages.forEach(pkg => fetchPackage(pkg.name));
   }
 
