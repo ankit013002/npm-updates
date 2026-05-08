@@ -39,10 +39,11 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packages]);
 
-  async function fetchPackage(name: string) {
+  async function fetchPackage(name: string, force = false) {
     setLoadingPkg(prev => ({ ...prev, [name]: true }));
     try {
-      const res = await fetch(`/api/package/${name}`);
+      const url = force ? `/api/package/${name}?force=1` : `/api/package/${name}`;
+      const res = await fetch(url);
       const data = await res.json();
       setPackageData(prev => ({ ...prev, [name]: res.ok ? data : null }));
     } catch {
@@ -74,7 +75,7 @@ export default function Home() {
   }
 
   function handleRefreshAll() {
-    packages.forEach(pkg => fetchPackage(pkg.name));
+    packages.forEach(pkg => fetchPackage(pkg.name, true));
   }
 
   function handleSaveSettings(settings: OllamaSettings) {
