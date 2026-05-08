@@ -12,7 +12,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ releases: [] });
   }
 
-  const [, owner, repo] = match;
+  const [, owner, repoRaw] = match;
+  const repo = repoRaw.replace(/\.git$/, '').split('#')[0];
 
   const res = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/releases?per_page=5`,
