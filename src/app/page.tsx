@@ -48,10 +48,10 @@ export default function Home() {
       const res = await fetch(url);
       const data = await res.json();
       if (fetchGenRef.current[name] !== gen) return;
-      setPackageData(prev => ({ ...prev, [name]: res.ok ? data : null }));
+      setPackageData(prev => ({ ...prev, [name]: res.ok ? data : (prev[name] ?? null) }));
     } catch {
       if (fetchGenRef.current[name] !== gen) return;
-      setPackageData(prev => ({ ...prev, [name]: null }));
+      setPackageData(prev => ({ ...prev, [name]: prev[name] ?? null }));
     } finally {
       if (fetchGenRef.current[name] === gen) {
         setLoadingPkg(prev => ({ ...prev, [name]: false }));
