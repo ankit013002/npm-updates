@@ -1,21 +1,20 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { OllamaSettings } from '@/lib/types';
+import { SummarySettings } from '@/lib/types';
 
 interface Props {
-  settings: OllamaSettings;
-  onSave: (settings: OllamaSettings) => void;
+  settings: SummarySettings;
+  onSave: (settings: SummarySettings) => void;
   onClose: () => void;
 }
 
 export default function SettingsPanel({ settings, onSave, onClose }: Props) {
-  const [baseUrl, setBaseUrl] = useState(settings.baseUrl);
-  const [model, setModel] = useState(settings.model);
-  const firstInputRef = useRef<HTMLInputElement>(null);
+  const [claudeApiKey, setClaudeApiKey] = useState(settings.claudeApiKey);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    firstInputRef.current?.focus();
+    inputRef.current?.focus();
     const handleKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -34,7 +33,7 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-1">
-          <h2 id="settings-title" className="text-base font-semibold">AI Settings</h2>
+          <h2 id="settings-title" className="text-base font-semibold">Settings</h2>
           <button
             onClick={onClose}
             className="p-1 text-gray-500 hover:text-gray-300 transition-colors"
@@ -45,34 +44,25 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
           </button>
         </div>
         <p className="text-sm text-gray-500 mb-5">
-          Connects to a locally running Ollama instance for changelog summaries.
+          Changelog summaries work without a key using a built-in extractor.
+          Add a Claude API key for richer AI-generated summaries.
         </p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Ollama URL</label>
-            <input
-              ref={firstInputRef}
-              type="text"
-              value={baseUrl}
-              onChange={e => setBaseUrl(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-gray-500 transition-colors"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Model</label>
-            <input
-              type="text"
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              placeholder="llama3.2, llama4, mistral…"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-gray-500 placeholder-gray-600 transition-colors"
-            />
-            <p className="mt-1.5 text-xs text-gray-500">
-              Pull a model first:{' '}
-              <code className="bg-gray-800 px-1 py-0.5 rounded">ollama pull llama3.2</code>
-            </p>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">
+            Claude API key <span className="text-gray-600 font-normal">(optional)</span>
+          </label>
+          <input
+            ref={inputRef}
+            type="password"
+            value={claudeApiKey}
+            onChange={e => setClaudeApiKey(e.target.value)}
+            placeholder="sk-ant-…"
+            className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-gray-500 placeholder-gray-600 transition-colors"
+          />
+          <p className="mt-1.5 text-xs text-gray-500">
+            Stored in your browser only. Leave blank to use the built-in extractor.
+          </p>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -83,7 +73,7 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
             Cancel
           </button>
           <button
-            onClick={() => onSave({ baseUrl, model })}
+            onClick={() => onSave({ claudeApiKey })}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
           >
             Save

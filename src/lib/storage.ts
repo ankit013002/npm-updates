@@ -1,11 +1,10 @@
-import { OllamaSettings, SubscribedPackage } from './types';
+import { SummarySettings, SubscribedPackage } from './types';
 
 const PACKAGES_KEY = 'npm-tracker-packages';
 const SETTINGS_KEY = 'npm-tracker-settings';
 
-const DEFAULT_SETTINGS: OllamaSettings = {
-  baseUrl: 'http://localhost:11434',
-  model: 'llama3.2',
+const DEFAULT_SETTINGS: SummarySettings = {
+  claudeApiKey: '',
 };
 
 export function getSubscribedPackages(): SubscribedPackage[] {
@@ -55,7 +54,7 @@ export function markAsSeen(name: string, version: string): void {
   );
 }
 
-export function getOllamaSettings(): OllamaSettings {
+export function getSummarySettings(): SummarySettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
     const data = localStorage.getItem(SETTINGS_KEY);
@@ -65,6 +64,6 @@ export function getOllamaSettings(): OllamaSettings {
   }
 }
 
-export function saveOllamaSettings(settings: OllamaSettings): void {
+export function saveSummarySettings(settings: SummarySettings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }

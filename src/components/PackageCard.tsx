@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GitHubRelease, NpmPackageData, OllamaSettings, SubscribedPackage } from '@/lib/types';
+import { GitHubRelease, NpmPackageData, SummarySettings, SubscribedPackage } from '@/lib/types';
+import { summarizeRelease } from '@/lib/summarize';
 
 interface Props {
   pkg: SubscribedPackage;
@@ -9,7 +10,7 @@ interface Props {
   loading: boolean;
   onRemove: (name: string) => void;
   onMarkAsSeen: (name: string, version: string) => void;
-  ollamaSettings: OllamaSettings;
+  summarySettings: SummarySettings;
   lastChecked?: string;
 }
 
@@ -19,7 +20,7 @@ export default function PackageCard({
   loading,
   onRemove,
   onMarkAsSeen,
-  ollamaSettings,
+  summarySettings,
   lastChecked,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -73,14 +74,17 @@ export default function PackageCard({
     setSummaryLoading(prev => ({ ...prev, [release.tagName]: true }));
     setSummaryError(prev => ({ ...prev, [release.tagName]: '' }));
     try {
+      if (!summarySettings.claudeApiKey) {
+        setSummaries(prev => ({ ...prev, [release.tagName]: summarizeRelease(release.body) }));
+        return;
+      }
       const res = await fetch('/api/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           changelog: release.body,
           packageName: pkg.name,
-          baseUrl: ollamaSettings.baseUrl,
-          model: ollamaSettings.model,
+          claudeApiKey: summarySettings.claudeApiKey,
         }),
       });
       const json = await res.json();
@@ -90,7 +94,7 @@ export default function PackageCard({
         setSummaries(prev => ({ ...prev, [release.tagName]: json.summary }));
       }
     } catch {
-      setSummaryError(prev => ({ ...prev, [release.tagName]: 'Could not reach Ollama' }));
+      setSummaryError(prev => ({ ...prev, [release.tagName]: 'Summary failed' }));
     } finally {
       setSummaryLoading(prev => ({ ...prev, [release.tagName]: false }));
     }
@@ -287,7 +291,11 @@ export default function PackageCard({
                             disabled={summaryLoading[release.tagName]}
                             className="text-xs px-2 py-1 rounded-md bg-violet-900/40 hover:bg-violet-800/60 text-violet-400 transition-colors disabled:opacity-50"
                           >
-                            {summaryLoading[release.tagName] ? 'Summarizing…' : '✦ AI Summary'}
+                            {summaryLoading[release.tagName]
+                              ? 'Summarizing…'
+                              : summarySettings.claudeApiKey
+                                ? '✦ AI Summary'
+                                : 'Summarize'}
                           </button>
                         )}
                       </div>
