@@ -4,12 +4,12 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'npm tracker',
     short_name: 'npm tracker',
-    description: 'Track npm package updates with AI-powered changelogs',
+    description: 'Track npm package updates, semver drift, and release notes',
     start_url: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#030712',
-    theme_color: '#030712',
+    background_color: '#090a0a',
+    theme_color: '#090a0a',
     icons: [
       {
         src: '/apple-icon',
