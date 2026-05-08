@@ -18,9 +18,13 @@ interface ParsedResult {
 function parsePackageJson(raw: string): string[] {
   let parsed: Record<string, unknown>;
   try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error('Invalid JSON — please paste a valid package.json');
+    const value = JSON.parse(raw);
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new Error('Content must be a JSON object (e.g. a package.json)');
+    }
+    parsed = value as Record<string, unknown>;
+  } catch (err) {
+    throw err instanceof Error ? err : new Error('Invalid JSON — please paste a valid package.json');
   }
 
   const depFields = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
