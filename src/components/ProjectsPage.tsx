@@ -295,6 +295,7 @@ function ImportModal({
   }
 
   async function handleDrop(e: React.DragEvent) {
+    e.stopPropagation();
     const content = await readDroppedFile(e);
     if (content !== null) { setText(content); setDragging(false); }
   }
@@ -310,7 +311,12 @@ function ImportModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg mx-4 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-lg mx-4 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl"
+        onClick={e => e.stopPropagation()}
+        onDragOver={e => e.stopPropagation()}
+        onDragLeave={e => e.stopPropagation()}
+        onDrop={e => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <h2 className="text-sm font-semibold text-gray-100">Import package.json</h2>
           <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-300 rounded"><XIcon /></button>
