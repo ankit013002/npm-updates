@@ -25,3 +25,17 @@ export interface OllamaSettings {
   baseUrl: string;
   model: string;
 }
+
+export interface ProjectPackageEntry {
+  name: string;
+  installedVersion: string;
+  addedAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+  packages: ProjectPackageEntry[];
+}
