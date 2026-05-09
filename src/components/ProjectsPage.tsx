@@ -34,6 +34,20 @@ function bumpLabel(from: string, to: string): 'major' | 'minor' | 'patch' | null
   return null;
 }
 
+// ─── File-drop helper ─────────────────────────────────────────────────────────
+
+function readDroppedFile(e: React.DragEvent): Promise<string | null> {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return Promise.resolve(null);
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => resolve(null);
+    reader.readAsText(file);
+  });
+}
+
 // ─── Shared small components ──────────────────────────────────────────────────
 
 function BumpBadge({ bump }: { bump: 'major' | 'minor' | 'patch' }) {
@@ -262,6 +276,7 @@ function ImportModal({
   }
 }`;
   const [text, setText] = useState(sample);
+  const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -277,6 +292,11 @@ function ImportModal({
     } catch {
       // Handled inline — show nothing, the textarea content is already user-editable
     }
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    const content = await readDroppedFile(e);
+    if (content !== null) { setText(content); setDragging(false); }
   }
 
   // Count packages for preview
@@ -297,10 +317,22 @@ function ImportModal({
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-gray-500">
-            Paste your <code className="text-gray-300">package.json</code>. Installed versions are read directly from the version field — range prefixes like <code className="text-gray-300">^</code> and <code className="text-gray-300">~</code> are stripped.
+            Paste your <code className="text-gray-300">package.json</code>, or <span className="text-gray-400">drop the file</span> anywhere below. Range prefixes like <code className="text-gray-300">^</code> and <code className="text-gray-300">~</code> are stripped automatically.
           </p>
-          <textarea value={text} onChange={e => setText(e.target.value)} spellCheck={false} rows={10}
-            className="w-full bg-gray-950 border border-gray-800 rounded-lg p-3 font-mono text-xs text-gray-300 leading-relaxed focus:outline-none focus:border-gray-600 transition-colors resize-none" />
+          <div
+            className={`relative rounded-lg transition-colors ${dragging ? 'ring-2 ring-emerald-500/60 bg-emerald-950/20' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }}
+            onDrop={handleDrop}
+          >
+            {dragging && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg pointer-events-none">
+                <span className="text-sm font-medium text-emerald-400">Drop to load file</span>
+              </div>
+            )}
+            <textarea value={text} onChange={e => setText(e.target.value)} spellCheck={false} rows={10}
+              className={`w-full bg-gray-950 border border-gray-800 rounded-lg p-3 font-mono text-xs text-gray-300 leading-relaxed focus:outline-none focus:border-gray-600 transition-colors resize-none ${dragging ? 'opacity-30' : ''}`} />
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">
               {count > 0 ? `${count} package${count !== 1 ? 's' : ''} detected` : 'No packages detected'}
@@ -440,6 +472,7 @@ function ProjectDetail({
   const [draftName, setDraftName] = useState(project.name);
   const [draftDesc, setDraftDesc] = useState(project.description ?? '');
   const [toast, setToast] = useState<string | null>(null);
+  const [draggingFile, setDraggingFile] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const existingNames = new Set(project.packages.map(p => p.name));
@@ -463,10 +496,38 @@ function ProjectDetail({
     onProjectUpdated();
   }
 
+  async function handleFileDrop(e: React.DragEvent) {
+    const content = await readDroppedFile(e);
+    setDraggingFile(false);
+    if (content === null) return;
+    try {
+      const result = importPackageJsonToProject(project.id, content);
+      onProjectUpdated();
+      showToast(`Imported ${result.added} package${result.added !== 1 ? 's' : ''}${result.skipped ? `, updated ${result.skipped}` : ''}`);
+    } catch {
+      showToast('Could not parse dropped file');
+    }
+  }
+
   const updatesCount = project.packages.length; // actual count computed per-row; header just shows total
 
   return (
-    <div>
+    <div
+      className="relative"
+      onDragOver={e => { e.preventDefault(); setDraggingFile(true); }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDraggingFile(false); }}
+      onDrop={handleFileDrop}
+    >
+      {draggingFile && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center rounded-xl bg-gray-950/80 border-2 border-dashed border-emerald-500/70 pointer-events-none">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <p className="text-sm font-medium text-emerald-400">Drop package.json to import</p>
+          </div>
+        </div>
+      )}
       <button onClick={onBack}
         className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-200 mb-6 transition-colors">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -592,19 +653,40 @@ function ProjectDetail({
 // ─── Project card ─────────────────────────────────────────────────────────────
 
 function ProjectCard({
-  project, onSelect, onDelete,
+  project, onSelect, onDelete, onDropFile,
 }: {
   project: Project;
   onSelect: () => void;
   onDelete: () => void;
+  onDropFile: (text: string) => void;
 }) {
   const count = project.packages.length;
+  const [draggingOver, setDraggingOver] = useState(false);
+
+  async function handleDrop(e: React.DragEvent) {
+    e.stopPropagation();
+    const content = await readDroppedFile(e);
+    setDraggingOver(false);
+    if (content !== null) onDropFile(content);
+  }
 
   return (
     <div
-      className="group relative flex flex-col bg-gray-900/60 border border-gray-800 rounded-xl p-4 hover:border-gray-700 hover:bg-gray-900 transition-all cursor-pointer"
+      className={`group relative flex flex-col bg-gray-900/60 border rounded-xl p-4 transition-all cursor-pointer ${
+        draggingOver
+          ? 'border-emerald-500/70 bg-emerald-950/20 scale-[1.01]'
+          : 'border-gray-800 hover:border-gray-700 hover:bg-gray-900'
+      }`}
       onClick={onSelect}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDraggingOver(true); }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDraggingOver(false); }}
+      onDrop={handleDrop}
     >
+      {draggingOver && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl pointer-events-none">
+          <span className="text-xs font-medium text-emerald-400 bg-gray-950/80 px-2 py-1 rounded">Drop to import</span>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-semibold text-gray-100 truncate">{project.name}</h3>
@@ -661,6 +743,14 @@ export default function ProjectsPage() {
     if (selectedId === id) setSelectedId(null);
   }
 
+  function handleCardFileDrop(projectId: string, text: string) {
+    try {
+      importPackageJsonToProject(projectId, text);
+      refresh();
+      setSelectedId(projectId);
+    } catch { /* invalid file — open project so user can see it */ }
+  }
+
   const selected = selectedId ? projects.find(p => p.id === selectedId) ?? null : null;
 
   return (
@@ -714,6 +804,7 @@ export default function ProjectsPage() {
                   project={p}
                   onSelect={() => setSelectedId(p.id)}
                   onDelete={() => handleDelete(p.id)}
+                  onDropFile={text => handleCardFileDrop(p.id, text)}
                 />
               ))}
             </div>
