@@ -277,8 +277,13 @@ function ImportModal({
 }`;
   const [text, setText] = useState(sample);
   const [dragging, setDragging] = useState(false);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const repoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    repoInputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -291,6 +296,24 @@ function ImportModal({
       onClose();
     } catch {
       // Handled inline — show nothing, the textarea content is already user-editable
+    }
+  }
+
+  async function handleFetchRepo(e: FormEvent) {
+    e.preventDefault();
+    if (!repoUrl.trim()) return;
+    setFetching(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(`/api/github-repo?repo=${encodeURIComponent(repoUrl.trim())}`);
+      const data = await res.json();
+      if (!res.ok) { setFetchError(data.error ?? 'Failed to fetch'); return; }
+      setText(data.content);
+      setRepoUrl('');
+    } catch {
+      setFetchError('Could not reach the server');
+    } finally {
+      setFetching(false);
     }
   }
 
@@ -322,9 +345,33 @@ function ImportModal({
           <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-300 rounded"><XIcon /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-xs text-gray-500">
-            Paste your <code className="text-gray-300">package.json</code>, or <span className="text-gray-400">drop the file</span> anywhere below. Range prefixes like <code className="text-gray-300">^</code> and <code className="text-gray-300">~</code> are stripped automatically.
-          </p>
+          {/* GitHub fetch */}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-400">From GitHub repo</label>
+            <form onSubmit={handleFetchRepo} className="flex gap-2">
+              <div className="flex-1 flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 focus-within:border-gray-500 transition-colors">
+                <GitHubIcon />
+                <input
+                  ref={repoInputRef}
+                  value={repoUrl}
+                  onChange={e => { setRepoUrl(e.target.value); setFetchError(null); }}
+                  placeholder="github.com/owner/repo or owner/repo"
+                  className="flex-1 bg-transparent text-sm text-gray-100 placeholder-gray-600 focus:outline-none min-w-0"
+                />
+              </div>
+              <button type="submit" disabled={fetching || !repoUrl.trim()}
+                className="px-3 py-2 text-sm bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed border border-gray-700 rounded-lg transition-colors whitespace-nowrap">
+                {fetching ? 'Fetching…' : 'Fetch'}
+              </button>
+            </form>
+            {fetchError && <p className="text-xs text-red-400">{fetchError}</p>}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-800" />
+            <span className="text-xs text-gray-600">or paste / drop below</span>
+            <div className="flex-1 h-px bg-gray-800" />
+          </div>
           <div
             className={`relative rounded-lg transition-colors ${dragging ? 'ring-2 ring-emerald-500/60 bg-emerald-950/20' : ''}`}
             onDragOver={e => { e.preventDefault(); setDragging(true); }}
