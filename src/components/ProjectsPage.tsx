@@ -280,6 +280,7 @@ function ImportModal({
   const [repoUrl, setRepoUrl] = useState('');
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [repoOptions, setRepoOptions] = useState<string[] | null>(null);
   const repoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -304,11 +305,35 @@ function ImportModal({
     if (!repoUrl.trim()) return;
     setFetching(true);
     setFetchError(null);
+    setRepoOptions(null);
     try {
       const res = await fetch(`/api/github-repo?repo=${encodeURIComponent(repoUrl.trim())}`);
       const data = await res.json();
       if (!res.ok) { setFetchError(data.error ?? 'Failed to fetch'); return; }
+      if (data.options) {
+        setRepoOptions(data.options);
+      } else {
+        setText(data.content);
+        setRepoUrl('');
+      }
+    } catch {
+      setFetchError('Could not reach the server');
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  async function handleSelectOption(path: string) {
+    setFetching(true);
+    setFetchError(null);
+    try {
+      const res = await fetch(
+        `/api/github-repo?repo=${encodeURIComponent(repoUrl.trim())}&path=${encodeURIComponent(path)}`,
+      );
+      const data = await res.json();
+      if (!res.ok) { setFetchError(data.error ?? 'Failed to fetch'); return; }
       setText(data.content);
+      setRepoOptions(null);
       setRepoUrl('');
     } catch {
       setFetchError('Could not reach the server');
@@ -365,6 +390,26 @@ function ImportModal({
               </button>
             </form>
             {fetchError && <p className="text-xs text-red-400">{fetchError}</p>}
+            {repoOptions && (
+              <div className="mt-1 border border-gray-700 rounded-lg overflow-hidden">
+                <p className="px-3 py-2 text-xs text-gray-500 bg-gray-800/60 border-b border-gray-700">
+                  Multiple package.json files found — pick one:
+                </p>
+                {repoOptions.map(path => (
+                  <button
+                    key={path}
+                    onClick={() => handleSelectOption(path)}
+                    disabled={fetching}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs font-mono text-gray-300 hover:bg-gray-800 hover:text-gray-100 disabled:opacity-50 transition-colors border-b border-gray-800/60 last:border-0"
+                  >
+                    <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {path}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
