@@ -15,6 +15,7 @@ import SettingsPanel from '@/components/SettingsPanel';
 import BulkImport from '@/components/BulkImport';
 import DataPortability from '@/components/DataPortability';
 import DiscoverPage from '@/components/DiscoverPage';
+import ProjectsPage from '@/components/ProjectsPage';
 
 // ─── Tracking search bar ──────────────────────────────────────────────────────
 
@@ -198,6 +199,27 @@ function EmptyState({ onImport }: { onImport: () => void }) {
   );
 }
 
+// ─── Tab button ───────────────────────────────────────────────────────────────
+
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick}
+      className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12.5px] transition-all
+        ${active ? 'bg-white/[0.06] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'text-zinc-400 hover:text-zinc-100'}`}>
+      {children}
+    </button>
+  );
+}
+
+function IconBtn({ children, onClick, label }: { children: React.ReactNode; onClick: () => void; label: string }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label}
+      className="w-8 h-8 grid place-items-center rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-[var(--accent-soft)] transition-colors">
+      {children}
+    </button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -210,7 +232,7 @@ export default function Home() {
   const [lastChecked, setLastChecked] = useState<Record<string, string>>({});
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [view, setView] = useState<'discover' | 'tracking'>('discover');
+  const [view, setView] = useState<'discover' | 'tracking' | 'projects'>('discover');
   const fetchGenRef = useRef<Record<string, number>>({});
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -266,7 +288,6 @@ export default function Home() {
     addPackage({ name, lastSeenVersion: latestVersion, addedAt: new Date().toISOString() });
     setPackages(getSubscribedPackages());
     showToast(`Tracking ${name}`);
-    // If added with a placeholder version, fetch real data
     if (latestVersion === '0.0.0') fetchPackage(name);
   }
 
@@ -327,7 +348,6 @@ export default function Home() {
 
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 backdrop-blur-xl bg-[#0a0a0f]/80 border-b border-white/[0.06]">
-        {/* shimmer line */}
         <div className="absolute inset-x-0 -bottom-px h-px overflow-hidden pointer-events-none">
           <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-70 animate-shimmer" />
         </div>
@@ -361,15 +381,20 @@ export default function Home() {
                 </span>
               )}
             </TabBtn>
+            <TabBtn active={view === 'projects'} onClick={() => setView('projects')}>
+              Projects
+            </TabBtn>
           </nav>
 
           {/* icon buttons */}
           <div className="flex items-center gap-1">
-            <IconBtn label="Refresh all" onClick={handleRefreshAll}>
-              <svg className={`w-4 h-4 ${refreshing ? 'animate-spin-once' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </IconBtn>
+            {view === 'tracking' && (
+              <IconBtn label="Refresh all" onClick={handleRefreshAll}>
+                <svg className={`w-4 h-4 ${refreshing ? 'animate-spin-once' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </IconBtn>
+            )}
             <IconBtn label="Settings" onClick={() => setShowSettings(true)}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -382,16 +407,21 @@ export default function Home() {
 
       {/* ─── Main ───────────────────────────────────────────────────── */}
       <main className="relative z-10 max-w-3xl mx-auto px-6 pb-24">
-        {view === 'discover' ? (
+        {view === 'discover' && (
           <DiscoverPage onAdd={handleAdd} trackedNames={trackedNames} />
-        ) : (
+        )}
+
+        {view === 'projects' && (
+          <ProjectsPage />
+        )}
+
+        {view === 'tracking' && (
           <div className="pt-6">
             <div className="space-y-2.5">
               <TrackingSearch onAdd={handleAdd} subscribedNames={packages.map(p => p.name)} />
               <ActionChips onOpenBulk={() => setShowBulk(true)} onExport={handleExport} />
             </div>
 
-            {/* Updates available */}
             {withUpdates.length > 0 && (
               <section className="relative mt-9">
                 <div className="relative flex items-center justify-between mb-3">
@@ -416,7 +446,6 @@ export default function Home() {
               </section>
             )}
 
-            {/* All clear */}
             {withUpdates.length === 0 && packages.length > 0 && (
               <section className="mt-9 rounded-xl bg-emerald-500/[0.04] ring-1 ring-inset ring-emerald-500/[0.08] px-5 py-4 flex items-center gap-3">
                 <span className="w-7 h-7 grid place-items-center rounded-full bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/20 text-emerald-300">
@@ -431,7 +460,6 @@ export default function Home() {
               </section>
             )}
 
-            {/* Up to date */}
             {upToDate.length > 0 && (
               <section className="mt-10">
                 <div className="flex items-center gap-2.5 mb-3 opacity-80">
@@ -456,17 +484,18 @@ export default function Home() {
               </div>
             )}
 
-            {/* Data portability (kept functional, hidden visually in a subtle row) */}
             <div className="mt-8">
               <DataPortability packages={packages} onImport={() => setPackages(getSubscribedPackages())} />
             </div>
           </div>
         )}
 
-        <div className="mt-16 flex items-center justify-between text-[11px] text-zinc-600">
-          <span className="font-mono">npm-tracker · v1.4.0</span>
-          <span>Last refresh {refreshing ? 'running…' : '–'}</span>
-        </div>
+        {view !== 'projects' && (
+          <div className="mt-16 flex items-center justify-between text-[11px] text-zinc-600">
+            <span className="font-mono">npm-tracker · v1.4.0</span>
+            <span>Last refresh {refreshing ? 'running…' : '–'}</span>
+          </div>
+        )}
       </main>
 
       {/* ─── Toast ──────────────────────────────────────────────────── */}
@@ -491,24 +520,5 @@ export default function Home() {
         />
       )}
     </div>
-  );
-}
-
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick}
-      className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-md text-[12.5px] transition-all
-        ${active ? 'bg-white/[0.06] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]' : 'text-zinc-400 hover:text-zinc-100'}`}>
-      {children}
-    </button>
-  );
-}
-
-function IconBtn({ children, onClick, label }: { children: React.ReactNode; onClick: () => void; label: string }) {
-  return (
-    <button onClick={onClick} aria-label={label} title={label}
-      className="w-8 h-8 grid place-items-center rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-[var(--accent-soft)] transition-colors">
-      {children}
-    </button>
   );
 }
